@@ -1,0 +1,9 @@
+
+planetMass,1.8986e27,m,Mass of Jupiter in kg
+planetSMA,5.20336301,a,Jupiter's semi major axis in AU
+planetInc,1.30530,i,Jupiter inclination
+planetEcc,0.04839266,e,Eccentricity of Jupiter
+planetLongPre,14.75385,LP,Longitude of the prehelion
+planetMeanLong,34.404,ML,Mean longitude
+planetInc,1.30530,i,Jupital orbital inclination
+planetNode,100.55615,OMEGA,Longitude of the Jupiter ascending node
