@@ -3,8 +3,11 @@ package dataops
 import (
 	"fmt"
 	"os"
-	"skyham/pkg/skylog"
+	"sort"
 	"strconv"
+	"text/tabwriter"
+
+	"github.com/Saied74/skyham/pkg/skylog"
 )
 
 //gConvert converts a slice of strings to a slice of float64 with some
@@ -60,4 +63,28 @@ func assign(items []string, key string) BaseItem {
 	oneItem.Numonic = items[2]
 	oneItem.Description = items[3]
 	return oneItem
+}
+
+//PrintBaseItems prints the contents of the baseitems structured tabbed.
+func (bd *BaseItems) PrintBaseItems() {
+	dd := *bd
+	//we will need this later for generating tabbed output
+	w := new(tabwriter.Writer)
+	sortKey := []string{}
+	for key := range dd {
+		sortKey = append(sortKey, key)
+	}
+	sk := sort.StringSlice(sortKey)
+	sk.Sort()
+	fmt.Printf("\n")
+	w.Init(os.Stdout, 8, 8, 0, '\t', 0)
+	fmt.Fprintln(w, "Key\tName\tValue\tNumonic\tDescription")
+	for _, key := range sk {
+		s := dd[key]
+		buf := []byte(fmt.Sprintf("%s\t%s\t%e\t%s\t%s\n", key, s.Name, s.Value, s.Numonic, s.Description))
+		// fmt.Fprintln(w, dp.Name, dp.Value, dp.Numonic, dp.Description)
+		w.Write(buf)
+	}
+	fmt.Printf("\n")
+	w.Flush()
 }

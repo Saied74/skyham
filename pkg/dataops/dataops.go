@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"strconv"
 	"strings"
+
+	"github.com/Saied74/skyham/pkg/skymath"
 )
 
 //BaseItem is the basic data used for the parameters of the calculations
@@ -17,6 +20,73 @@ type BaseItem struct {
 
 //BaseItems is the main data structure that holds most if not all of the data
 type BaseItems map[string]BaseItem
+
+//ProcInputs takes a pointer to the input structure and loads BaseItems
+func (bd *BaseItems) ProcInputs(pack []string) error {
+	dd := *bd
+	g := pack[0:5]
+	err := bd.JTime(g)
+	if err != nil {
+		return fmt.Errorf("time format is incorrect %v", err)
+	}
+	lat := strings.Split(g[6], " ")
+	if len(lat) != 3 {
+		return fmt.Errorf("Latitude had %d fields it should have 3", len(lat))
+	}
+	d, err := strconv.ParseFloat(lat[0], 64)
+	if err != nil {
+		return fmt.Errorf("lattitude degrees did not convert to number %v", err)
+	}
+	m, err := strconv.ParseFloat(lat[1], 64)
+	if err != nil {
+		return fmt.Errorf("lattitude minutes did not convert to number %v", err)
+	}
+	s, err := strconv.ParseFloat(lat[2], 64)
+	if err != nil {
+		return fmt.Errorf("lattitude seconds did not convert to number %v", err)
+	}
+	dd["loclat"] = BaseItem{
+		Name:        "locallat",
+		Value:       d + m/60 + s/3600.0,
+		Numonic:     "lambda",
+		Description: "lattitude at the location of interest",
+	}
+
+	long := strings.Split(g[7], " ")
+	if len(long) != 3 {
+		return fmt.Errorf("longitude had %d fields it should have 3", len(long))
+	}
+	d, err = strconv.ParseFloat(long[0], 64)
+	if err != nil {
+		return fmt.Errorf("longitude degrees did not convert to number %v", err)
+	}
+	m, err = strconv.ParseFloat(long[1], 64)
+	if err != nil {
+		return fmt.Errorf("longitude minutes did not convert to number %v", err)
+	}
+	s, err = strconv.ParseFloat(long[2], 64)
+	if err != nil {
+		return fmt.Errorf("longitude seconds did not convert to number %v", err)
+	}
+	dd["locllong"] = BaseItem{
+		Name:        "locallong",
+		Value:       d + m/60 + s/3600.0,
+		Numonic:     "phi",
+		Description: "longitude at the location of interest",
+	}
+
+	ele, err := strconv.ParseFloat(g[8], 64)
+	if err != nil {
+		return fmt.Errorf("Elevation did not convert to a number %v", err)
+	}
+	dd["localelev"] = BaseItem{
+		Name:        "localelev",
+		Value:       ((ele * 12.0) / 2.54) / 100.0,
+		Numonic:     "h",
+		Description: "elevation at the location of interest",
+	}
+	return nil
+}
 
 //ReadData reads the base data file and returns a map of the input base data
 func (bd *BaseItems) ReadData(filename string) {
@@ -195,5 +265,61 @@ func (bd *BaseItems) CalcE() {
 			Numonic:     "E",
 			Description: "Planet Eccentrioc Anomaly",
 		}
+	}
+}
+
+//PlanetOPVec returns the planet vector in its own orbital plane inertial frame
+func (bd *BaseItems) PlanetOPVec() skymath.Vec {
+	dd := *bd
+	v := skymath.Vec{}
+	e := dd["planetEcc"].Value
+	bigE := dd["planetE"].Value
+	a := dd["planetSMA"].Value * dd["au"].Value
+	b := a * math.Sqrt(1-e*e)
+	v[0] = a * (math.Cos(bigE) - e)
+	v[1] = b * math.Sin(bigE)
+	v[2] = 0.0
+	return v
+}
+
+//EarthOPVec returns the planet vector in its own orbital plane inertial frame
+func (bd *BaseItems) EarthOPVec() skymath.Vec {
+	dd := *bd
+	v := skymath.Vec{}
+	e := dd["earthEcc"].Value
+	bigE := dd["earthE"].Value
+	a := dd["earthSMA"].Value * dd["au"].Value
+	b := a * math.Sqrt(1-e*e)
+	v[0] = a * (math.Cos(bigE) - e)
+	v[1] = b * math.Sin(bigE)
+	v[2] = 0.0
+	return v
+}
+
+//SidAngle updates the sideral angle at the specifed time since J2000
+func (bd *BaseItems) SidAngle() {
+	dd := *bd
+	sidDay := 23.0 + (56.0 / 60.0) + (4.09890 / 3600.0)
+	deltaT := dd["now"].Value - dd["t0"].Value
+	sidAngle := (360.0 / sidDay) * deltaT * 24.0
+	sidAngle += dd["sideralJ2000"].Value
+	dd["sidAngle"] = BaseItem{
+		Name:        "sidAngle",
+		Value:       sidAngle,
+		Numonic:     "gamma",
+		Description: "Greenwich Sideral Angle at the specified time",
+	}
+}
+
+//EarthPrecession updates the presession of the earth since J2000
+func (bd *BaseItems) EarthPrecession() {
+	dd := *bd
+	deltaT := dd["now"].Value - dd["t0"].Value
+	p := (360.0 * deltaT) / (25770.0 * 365.25)
+	dd["earthP"] = BaseItem{
+		Name:        "earthP",
+		Value:       p,
+		Numonic:     "p",
+		Description: "Earth precession since the J2000 epoch",
 	}
 }
