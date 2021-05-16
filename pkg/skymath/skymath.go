@@ -1,6 +1,8 @@
 package skymath
 
-import "math"
+import (
+	"math"
+)
 
 //Euler is a 3x3 matrix for 3D Euler rotation
 type Euler [3][3]float64
@@ -66,4 +68,38 @@ func Vply(a Euler, b Vec) Vec {
 		}
 	}
 	return c
+}
+
+//Vadd is vector addition
+func Vadd(a, b Vec) Vec {
+	return Vec{
+		a[0] + b[0],
+		a[1] + b[1],
+		a[2] + b[2],
+	}
+}
+
+//Vsub is vector subtraction
+func Vsub(a, b Vec) Vec {
+	return Vec{
+		a[0] - b[0],
+		a[1] - b[1],
+		a[2] - b[2],
+	}
+}
+
+//CalcBetaEpsilon calculates bearing and elevation of the location
+func CalcBetaEpsilon(v Vec) (beta, epsilon float64) {
+	x := v[0]
+	y := v[1]
+	z := v[2]
+
+	d := math.Sqrt(x*x + y*y)
+	sBeta := x / d
+	tEpsilon := z / d
+	beta = math.Asin(sBeta)
+	beta = (beta / math.Pi) * 180
+	epsilon = math.Atan(tEpsilon)
+	epsilon = (epsilon / math.Pi) * 180
+	return beta, epsilon
 }

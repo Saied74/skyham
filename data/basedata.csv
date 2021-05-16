@@ -12,3 +12,5 @@ earthEcc,0.016710224,e,Eccentricity of the Earth
 earthNode,11.26064,OMEGA,Earth longitude of the ascending node in degrees
 longPre,102.94719,,longitude of the perihelion
 meanLong,100.46435,,mean longitude
+equotorialA,6378137, a, equotorial semi-major axis of earth
+polarB,6356752.3142, b, polar semi-major axis of earth

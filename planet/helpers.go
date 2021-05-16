@@ -49,12 +49,12 @@ func getProfile() *profiles {
 		hour: {
 			firstMsg:  "Enter the hour of interest (24 hour format): ",
 			secondMsg: "The hour of interest is: ",
-			input:     "21",
+			input:     "10",
 		},
 		minute: {
 			firstMsg:  "Enter the minute of interest: ",
 			secondMsg: "The minute of interest is: ",
-			input:     "0",
+			input:     "30",
 		},
 		second: {
 			firstMsg:  "Don't enter the second of interest: ",
@@ -64,12 +64,12 @@ func getProfile() *profiles {
 		latitude: {
 			firstMsg:  "Enter latitude (N-S) of interest (see example): ",
 			secondMsg: "Latitude of interest is: ",
-			input:     "40 90 17 N",
+			input:     "34 55 42 S",
 		},
 		longitude: {
 			firstMsg:  "Enter longitude (E-W) of interest (see exmaple): ",
 			secondMsg: "Longitude of interest is: ",
-			input:     "74 30 37 W",
+			input:     "138 36 3 E",
 		},
 		elevation: {
 			firstMsg:  "Enter the elevation of interst in feet: ",

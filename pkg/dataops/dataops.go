@@ -24,15 +24,16 @@ type BaseItems map[string]BaseItem
 //ProcInputs takes a pointer to the input structure and loads BaseItems
 func (bd *BaseItems) ProcInputs(pack []string) error {
 	dd := *bd
-	g := pack[0:5]
+	g := pack[0:6]
 	err := bd.JTime(g)
 	if err != nil {
 		return fmt.Errorf("time format is incorrect %v", err)
 	}
-	lat := strings.Split(g[6], " ")
-	if len(lat) != 3 {
-		return fmt.Errorf("Latitude had %d fields it should have 3", len(lat))
+	lat := strings.Split(pack[6], " ")
+	if len(lat) != 4 {
+		return fmt.Errorf("Latitude had %d fields it should have 4", len(lat))
 	}
+	fmt.Println("Lat", lat)
 	d, err := strconv.ParseFloat(lat[0], 64)
 	if err != nil {
 		return fmt.Errorf("lattitude degrees did not convert to number %v", err)
@@ -45,17 +46,22 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 	if err != nil {
 		return fmt.Errorf("lattitude seconds did not convert to number %v", err)
 	}
-	dd["loclat"] = BaseItem{
+	localLat := d + m/60 + s/3600.0
+	if lat[3] == "S" {
+		localLat = -localLat
+	}
+	dd["locallat"] = BaseItem{
 		Name:        "locallat",
-		Value:       d + m/60 + s/3600.0,
+		Value:       localLat,
 		Numonic:     "lambda",
 		Description: "lattitude at the location of interest",
 	}
 
-	long := strings.Split(g[7], " ")
-	if len(long) != 3 {
-		return fmt.Errorf("longitude had %d fields it should have 3", len(long))
+	long := strings.Split(pack[7], " ")
+	if len(long) != 4 {
+		return fmt.Errorf("longitude had %d fields it should have 4", len(long))
 	}
+	fmt.Println("Long", long)
 	d, err = strconv.ParseFloat(long[0], 64)
 	if err != nil {
 		return fmt.Errorf("longitude degrees did not convert to number %v", err)
@@ -68,14 +74,19 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 	if err != nil {
 		return fmt.Errorf("longitude seconds did not convert to number %v", err)
 	}
-	dd["locllong"] = BaseItem{
+	localLong := d + m/60 + s/3600.0
+	// if long[3] == "E" {
+	// 	localLong = -localLong
+	// }
+	fmt.Println("LocalLong", localLong)
+	dd["locallong"] = BaseItem{
 		Name:        "locallong",
-		Value:       d + m/60 + s/3600.0,
+		Value:       localLong,
 		Numonic:     "phi",
 		Description: "longitude at the location of interest",
 	}
 
-	ele, err := strconv.ParseFloat(g[8], 64)
+	ele, err := strconv.ParseFloat(pack[8], 64)
 	if err != nil {
 		return fmt.Errorf("Elevation did not convert to a number %v", err)
 	}
@@ -301,8 +312,9 @@ func (bd *BaseItems) SidAngle() {
 	dd := *bd
 	sidDay := 23.0 + (56.0 / 60.0) + (4.09890 / 3600.0)
 	deltaT := dd["now"].Value - dd["t0"].Value
-	sidAngle := (360.0 / sidDay) * deltaT * 24.0
+	sidAngle := math.Mod((360.0/sidDay)*deltaT*24.0, 360)
 	sidAngle += dd["sideralJ2000"].Value
+	fmt.Println("here is Sid", sidDay, deltaT, dd["sideralJ2000"].Value, sidAngle)
 	dd["sidAngle"] = BaseItem{
 		Name:        "sidAngle",
 		Value:       sidAngle,
@@ -321,5 +333,37 @@ func (bd *BaseItems) EarthPrecession() {
 		Value:       p,
 		Numonic:     "p",
 		Description: "Earth precession since the J2000 epoch",
+	}
+}
+
+//CalcLocalVec calculates the coordinates of the local coordinate in earth fixed fra,e
+func (bd *BaseItems) CalcLocalVec() skymath.Vec {
+	dd := *bd
+	a := dd["equotorialA"].Value
+	b := dd["polarB"].Value
+	lambda := (dd["locallat"].Value / 180.0) * math.Pi
+
+	cLambda := math.Cos(lambda) //Cos(lambda)
+	sLambda := math.Sin(lambda) //Sin(lambda)
+	aSq := a * a
+	bSq := b * b
+	kc := aSq * cLambda * cLambda
+	ks := bSq * sLambda * sLambda
+	k := math.Sqrt(kc + ks)
+
+	// fmt.Printf("Lambda: %e, Phi: %e\n", dd["locallat"].Value, dd["locallong"].Value)
+	// fmt.Printf("Elevation: %e\n", dd["localelev"].Value)
+	// fmt.Printf("a: %f, b:= %f, k:= %f\n", a, b, k)
+
+	phi := (dd["locallong"].Value / 180.0) * math.Pi
+	cPhi := math.Cos(phi)
+	sPhi := math.Sin(phi)
+	aCo := (aSq / k) + dd["localelev"].Value
+	bCo := (bSq / k) + dd["localelev"].Value
+
+	return skymath.Vec{
+		aCo * cLambda * cPhi,
+		aCo * cLambda * sPhi,
+		bCo * sLambda,
 	}
 }
