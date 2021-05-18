@@ -13,7 +13,7 @@ type Vec [3]float64
 //E1 is Euler rotation around the x axis
 func E1(a float64) Euler {
 	e := Euler{}
-	a = (a / 180.0) * math.Pi
+	a = ToRadians(a)
 	s := math.Sin(a)
 	c := math.Cos(a)
 	e[0] = [3]float64{1.0, 0.0, 0.0}
@@ -25,7 +25,7 @@ func E1(a float64) Euler {
 //E2 is Euler rotation aroudn the y axis
 func E2(a float64) Euler {
 	e := Euler{}
-	a = (a / 180.0) * math.Pi
+	a = ToRadians(a)
 	s := math.Sin(a)
 	c := math.Cos(a)
 	e[0] = [3]float64{c, 0.0, s}
@@ -37,7 +37,7 @@ func E2(a float64) Euler {
 //E3 is Euler rotation around the z axis
 func E3(a float64) Euler {
 	e := Euler{}
-	a = (a / 180.0) * math.Pi
+	a = ToRadians(a)
 	s := math.Sin(a)
 	c := math.Cos(a)
 	e[0] = [3]float64{c, -s, 0}
@@ -98,8 +98,21 @@ func CalcBetaEpsilon(v Vec) (beta, epsilon float64) {
 	sBeta := x / d
 	tEpsilon := z / d
 	beta = math.Asin(sBeta)
-	beta = (beta / math.Pi) * 180
+	beta = ToDegrees(beta)
+	if beta < 0.0 {
+		beta += 360.0
+	}
 	epsilon = math.Atan(tEpsilon)
-	epsilon = (epsilon / math.Pi) * 180
+	epsilon = ToDegrees(epsilon)
 	return beta, epsilon
+}
+
+//ToRadians converts degrees to radians modulo 2Pi
+func ToRadians(d float64) float64 {
+	return math.Mod((d/180)*math.Pi, 2.0*math.Pi)
+}
+
+//ToDegrees converts radians to degrees modulo 360
+func ToDegrees(r float64) float64 {
+	return math.Mod((r/math.Pi)*180, 360.0)
 }

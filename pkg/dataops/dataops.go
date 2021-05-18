@@ -10,6 +10,27 @@ import (
 	"github.com/Saied74/skyham/pkg/skymath"
 )
 
+const (
+	t0           = 2451545.0       // (t0)Julian days (JD) - EPOCH J2000
+	au           = 1.495978707E+11 // (au) meters Astronomical Unit in meters
+	sunMass      = 1.989E+30       // (M) Mass of the Sun in kg
+	gravity      = 6.67384E-11     // (G) Gravitational constant in SI units
+	sideralJ2000 = 280.46          // (Gamma) Greenwich sideral angle at J2000 epoch in degrees
+	//EarthTilt is the tilt of the earth's axis of rotation relative to the equotorial plane
+	EarthTilt = 23.439     // (Tau) Earth's tilt in degrees
+	earthMass = 5.97E+24   // (m) Mass of earth in kg
+	earthSMA  = 1.00000011 // (a) Earth's semi major axis in AU
+	//EarthInc is the inclination of the mean earth orbital plane
+	EarthInc = 0.00005     // (i) earth inclination
+	earthEcc = 0.016710224 // (e) Eccentricity of the Earth
+	//EarthNode is the longitude of the Earth's asencing node
+	EarthNode          = 11.26064     // (OMEGA) Earth longitude of the ascending node in degrees
+	earthLongPrehelian = 102.94719    // longitude of the perihelion
+	earthmeanLong      = 100.46435    //mean longitude
+	equotorialA        = 6378137.0    // (a) equotorial semi-major axis of earth
+	polarB             = 6356752.3142 // (b) polar semi-major axis of earth
+)
+
 //BaseItem is the basic data used for the parameters of the calculations
 type BaseItem struct {
 	Name        string
@@ -33,7 +54,6 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 	if len(lat) != 4 {
 		return fmt.Errorf("Latitude had %d fields it should have 4", len(lat))
 	}
-	fmt.Println("Lat", lat)
 	d, err := strconv.ParseFloat(lat[0], 64)
 	if err != nil {
 		return fmt.Errorf("lattitude degrees did not convert to number %v", err)
@@ -54,14 +74,13 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 		Name:        "locallat",
 		Value:       localLat,
 		Numonic:     "lambda",
-		Description: "lattitude at the location of interest",
+		Description: "Degrees: lattitude at the location of interest",
 	}
 
 	long := strings.Split(pack[7], " ")
 	if len(long) != 4 {
 		return fmt.Errorf("longitude had %d fields it should have 4", len(long))
 	}
-	fmt.Println("Long", long)
 	d, err = strconv.ParseFloat(long[0], 64)
 	if err != nil {
 		return fmt.Errorf("longitude degrees did not convert to number %v", err)
@@ -75,15 +94,12 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 		return fmt.Errorf("longitude seconds did not convert to number %v", err)
 	}
 	localLong := d + m/60 + s/3600.0
-	// if long[3] == "E" {
-	// 	localLong = -localLong
-	// }
-	fmt.Println("LocalLong", localLong)
+
 	dd["locallong"] = BaseItem{
 		Name:        "locallong",
 		Value:       localLong,
 		Numonic:     "phi",
-		Description: "longitude at the location of interest",
+		Description: "Degrees: longitude at the location of interest",
 	}
 
 	ele, err := strconv.ParseFloat(pack[8], 64)
@@ -94,7 +110,7 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 		Name:        "localelev",
 		Value:       ((ele * 12.0) / 2.54) / 100.0,
 		Numonic:     "h",
-		Description: "elevation at the location of interest",
+		Description: "Meters: elevation at the location of interest",
 	}
 	return nil
 }
@@ -122,8 +138,8 @@ func (bd *BaseItems) ReadData(filename string) {
 func (bd *BaseItems) CalcPeriod() {
 	dd := *bd
 	numerator := (math.Pi * math.Pi) * 4.0
-	denominator := dd["gravity"].Value * (dd["sunMass"].Value + dd["earthMass"].Value)
-	x := dd["earthSMA"].Value * dd["au"].Value
+	denominator := gravity * (sunMass + earthMass)
+	x := earthSMA * au
 	tSquared := (numerator / denominator) * x * x * x
 	item := BaseItem{
 		Name:        "earthPeriod",
@@ -133,8 +149,8 @@ func (bd *BaseItems) CalcPeriod() {
 	}
 	dd["earthPeriod"] = item
 
-	denominator = dd["gravity"].Value * (dd["sunMass"].Value + dd["planetMass"].Value)
-	x = dd["planetSMA"].Value * dd["au"].Value
+	denominator = gravity * (sunMass + dd["planetMass"].Value)
+	x = dd["planetSMA"].Value * au
 	tSquared = (numerator / denominator) * x * x * x
 	item = BaseItem{
 		Name:        "planetPeriod",
@@ -148,33 +164,41 @@ func (bd *BaseItems) CalcPeriod() {
 //CalcOPangles calculates the orbital plane angles, mean anomaly and argument of the Perrifocus
 func (bd *BaseItems) CalcOPangles() {
 	dd := *bd
-	m := dd["meanLong"].Value - dd["longPre"].Value
+	m := earthmeanLong - earthLongPrehelian
 	dd["meanAno"] = BaseItem{
 		Name:        "meanAno",
 		Value:       m,
 		Numonic:     "M0",
-		Description: "Mean Anomaly",
+		Description: "Degrees: Mean Anomaly",
 	}
-	omega := dd["longPre"].Value - dd["earthNode"].Value
+	omega := earthLongPrehelian - EarthNode
 	dd["argPre"] = BaseItem{
 		Name:        "argPre",
 		Value:       omega,
 		Numonic:     "omega",
-		Description: "argument of the perrifocus",
+		Description: "Degrees: argument of the perrifocus",
 	}
-	mp := dd["planetMeanLong"].Value - dd["planetLongPre"].Value
+	planetMeanLong, ok := dd["planetMeanLong"]
+	if !ok {
+		check("bad lookup: planetMeanLong", nil)
+	}
+	planetLongPre, ok := dd["planetLongPre"]
+	if !ok {
+		check("bad lookup: planetLongPre", nil)
+	}
+	mp := planetMeanLong.Value - planetLongPre.Value
 	dd["planetMeanAno"] = BaseItem{
 		Name:        "meanAno",
 		Value:       mp,
 		Numonic:     "M0",
-		Description: "Mean Anomaly",
+		Description: "Degrees: Mean Anomaly",
 	}
 	omegap := dd["planetLongPre"].Value - dd["planetNode"].Value
 	dd["planetArgPre"] = BaseItem{
 		Name:        "PlanetArgPre",
 		Value:       omegap,
 		Numonic:     "omega",
-		Description: "argument of the perrifocus",
+		Description: "Degrees: argument of the perrifocus",
 	}
 }
 
@@ -219,49 +243,76 @@ func (bd *BaseItems) JTime(gTStrings []string) error {
 //CalcM calculates the earth and planet mean anomaly at the specified epoch
 func (bd *BaseItems) CalcM() {
 	dd := *bd
-	m0 := (dd["meanAno"].Value / 180.0) * math.Pi
-	m := m0 + (2.0*math.Pi*(dd["now"].Value-dd["t0"].Value))/dd["earthPeriod"].Value
+	meanAno, ok := dd["meanAno"]
+	if !ok {
+		check("bad lookup: meanAno", nil)
+	}
+	m0 := skymath.ToRadians(meanAno.Value)
+	now, ok := dd["now"]
+	if !ok {
+		check("bad lookup: now", nil)
+	}
+	earthPeriod, ok := dd["earthPeriod"]
+	if !ok {
+		check("bad lookup: earthPeriod", nil)
+	}
+	m := m0 + (2.0*math.Pi*(now.Value-t0))/earthPeriod.Value
+	m = math.Mod(m, 2.0*math.Pi)
 	dd["earthM"] = BaseItem{
 		Name:        "earthM",
-		Value:       m,
+		Value:       skymath.ToDegrees(m),
 		Numonic:     "M",
-		Description: "Radians: Earth mean anomaly at desired epoch",
+		Description: "Degrees: Earth mean anomaly at desired epoch",
 	}
 
 	m0 = (dd["planetMeanAno"].Value / 180.0) * math.Pi
-	m = m0 + (2.0*math.Pi*(dd["now"].Value-dd["t0"].Value))/dd["planetPeriod"].Value
+	m = m0 + (2.0*math.Pi*(dd["now"].Value-t0))/dd["planetPeriod"].Value
+	m = math.Mod(m, 2.0*math.Pi)
 	dd["planetM"] = BaseItem{
 		Name:        "planetM",
-		Value:       m,
+		Value:       skymath.ToDegrees(m),
 		Numonic:     "M",
-		Description: "Radians: Planet mean anomaly at desired epoch",
+		Description: "Degrees: Planet mean anomaly at desired epoch",
 	}
 }
 
 //CalcE calculates earth and planet Eccentricity at specified epoch
 func (bd *BaseItems) CalcE() {
 	dd := *bd
-	bigM := dd["earthM"].Value
-	e := dd["earthEcc"].Value
+	earthM, ok := dd["earthM"]
+	if !ok {
+		check("bad lookup: earthM", nil)
+	}
+	bigM := earthM.Value
+	bigM = skymath.ToRadians(bigM)
 	bigE := 0.0
 	oldE := 0.0
 	for {
 		oldE = bigE
-		bigE = e*math.Sin(bigE) + bigM
+		bigE = earthEcc*math.Sin(bigE) + bigM
 		test := 100.0 * math.Abs((bigE-oldE)/oldE)
-		if test < 0.0001 { //0.01% error
+		if test < 0.01 { //0.01% error
 			break
 		}
-		dd["earthE"] = BaseItem{
-			Name:        "earthE",
-			Value:       bigE,
-			Numonic:     "E",
-			Description: "Earth Eccentrioc Anomaly",
-		}
 	}
-
-	bigM = dd["planetM"].Value
-	e = dd["planetEcc"].Value
+	bigE = math.Mod(bigE, 2.0*math.Pi)
+	dd["earthE"] = BaseItem{
+		Name:        "earthE",
+		Value:       skymath.ToDegrees(bigE),
+		Numonic:     "E",
+		Description: "Degrees: Earth Eccentrioc Anomaly",
+	}
+	planetM, ok := dd["planetM"]
+	if !ok {
+		check("bad lookup: planetM", nil)
+	}
+	bigM = planetM.Value
+	bigM = skymath.ToRadians(bigM)
+	planetEcc, ok := dd["planetEcc"]
+	if !ok {
+		check("bad lookup: planetEcc", nil)
+	}
+	e := planetEcc.Value
 	bigE = 0.0
 	for {
 		oldE = bigE
@@ -270,12 +321,13 @@ func (bd *BaseItems) CalcE() {
 		if test < 0.01 { //0.01% error
 			break
 		}
-		dd["planetE"] = BaseItem{
-			Name:        "planetE",
-			Value:       bigE,
-			Numonic:     "E",
-			Description: "Planet Eccentrioc Anomaly",
-		}
+	}
+	bigE = math.Mod(bigE, 2.0*math.Pi)
+	dd["planetE"] = BaseItem{
+		Name:        "planetE",
+		Value:       skymath.ToDegrees(bigE),
+		Numonic:     "E",
+		Description: "Degrees: Planet Eccentrioc Anomaly",
 	}
 }
 
@@ -283,9 +335,21 @@ func (bd *BaseItems) CalcE() {
 func (bd *BaseItems) PlanetOPVec() skymath.Vec {
 	dd := *bd
 	v := skymath.Vec{}
-	e := dd["planetEcc"].Value
-	bigE := dd["planetE"].Value
-	a := dd["planetSMA"].Value * dd["au"].Value
+	planetEcc, ok := dd["planetEcc"]
+	if !ok {
+		check("bad lookup: planetEcc", nil)
+	}
+	e := planetEcc.Value
+	planetE, ok := dd["planetE"]
+	if !ok {
+		check("bad lookup: planetE", nil)
+	}
+	bigE := skymath.ToRadians(planetE.Value)
+	planetSMA, ok := dd["planetSMA"]
+	if !ok {
+		check("Bad lookup: planetSMA", nil)
+	}
+	a := planetSMA.Value * au
 	b := a * math.Sqrt(1-e*e)
 	v[0] = a * (math.Cos(bigE) - e)
 	v[1] = b * math.Sin(bigE)
@@ -297,11 +361,15 @@ func (bd *BaseItems) PlanetOPVec() skymath.Vec {
 func (bd *BaseItems) EarthOPVec() skymath.Vec {
 	dd := *bd
 	v := skymath.Vec{}
-	e := dd["earthEcc"].Value
-	bigE := dd["earthE"].Value
-	a := dd["earthSMA"].Value * dd["au"].Value
-	b := a * math.Sqrt(1-e*e)
-	v[0] = a * (math.Cos(bigE) - e)
+	earthE, ok := dd["earthE"]
+	if !ok {
+		check("bad lookup: earthE", nil)
+	}
+	bigE := earthE.Value
+	bigE = skymath.ToRadians(bigE)
+	a := earthSMA * au
+	b := a * math.Sqrt(1.0-earthEcc*earthEcc)
+	v[0] = a * (math.Cos(bigE) - earthEcc)
 	v[1] = b * math.Sin(bigE)
 	v[2] = 0.0
 	return v
@@ -311,37 +379,44 @@ func (bd *BaseItems) EarthOPVec() skymath.Vec {
 func (bd *BaseItems) SidAngle() {
 	dd := *bd
 	sidDay := 23.0 + (56.0 / 60.0) + (4.09890 / 3600.0)
-	deltaT := dd["now"].Value - dd["t0"].Value
+	now, ok := dd["now"]
+	if !ok {
+		check("bad lookup: now", nil)
+	}
+	deltaT := now.Value - t0
 	sidAngle := math.Mod((360.0/sidDay)*deltaT*24.0, 360)
-	sidAngle += dd["sideralJ2000"].Value
-	fmt.Println("here is Sid", sidDay, deltaT, dd["sideralJ2000"].Value, sidAngle)
+	sidAngle += sideralJ2000
 	dd["sidAngle"] = BaseItem{
 		Name:        "sidAngle",
 		Value:       sidAngle,
 		Numonic:     "gamma",
-		Description: "Greenwich Sideral Angle at the specified time",
+		Description: "Degrees - Greenwich Sideral Angle at the specified time",
 	}
 }
 
 //EarthPrecession updates the presession of the earth since J2000
 func (bd *BaseItems) EarthPrecession() {
 	dd := *bd
-	deltaT := dd["now"].Value - dd["t0"].Value
+	deltaT := dd["now"].Value - t0
 	p := (360.0 * deltaT) / (25770.0 * 365.25)
 	dd["earthP"] = BaseItem{
 		Name:        "earthP",
 		Value:       p,
 		Numonic:     "p",
-		Description: "Earth precession since the J2000 epoch",
+		Description: "Degrees: Earth precession since the J2000 epoch",
 	}
 }
 
 //CalcLocalVec calculates the coordinates of the local coordinate in earth fixed fra,e
 func (bd *BaseItems) CalcLocalVec() skymath.Vec {
 	dd := *bd
-	a := dd["equotorialA"].Value
-	b := dd["polarB"].Value
-	lambda := (dd["locallat"].Value / 180.0) * math.Pi
+	a := float64(equotorialA)
+	b := float64(polarB)
+	locallat, ok := dd["locallat"]
+	if !ok {
+		check("bad lookup: locallat", nil)
+	}
+	lambda := skymath.ToRadians(locallat.Value)
 
 	cLambda := math.Cos(lambda) //Cos(lambda)
 	sLambda := math.Sin(lambda) //Sin(lambda)
@@ -354,12 +429,19 @@ func (bd *BaseItems) CalcLocalVec() skymath.Vec {
 	// fmt.Printf("Lambda: %e, Phi: %e\n", dd["locallat"].Value, dd["locallong"].Value)
 	// fmt.Printf("Elevation: %e\n", dd["localelev"].Value)
 	// fmt.Printf("a: %f, b:= %f, k:= %f\n", a, b, k)
-
-	phi := (dd["locallong"].Value / 180.0) * math.Pi
+	locallong, ok := dd["locallong"]
+	if !ok {
+		check("bad lookup: locallong", nil)
+	}
+	phi := skymath.ToRadians(locallong.Value)
 	cPhi := math.Cos(phi)
 	sPhi := math.Sin(phi)
-	aCo := (aSq / k) + dd["localelev"].Value
-	bCo := (bSq / k) + dd["localelev"].Value
+	locallevel, ok := dd["locallev"]
+	if !ok {
+		check("bad lookup: locallev", nil)
+	}
+	aCo := (aSq / k) + locallevel.Value
+	bCo := (bSq / k) + locallevel.Value
 
 	return skymath.Vec{
 		aCo * cLambda * cPhi,

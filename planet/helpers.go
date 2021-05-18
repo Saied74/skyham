@@ -156,3 +156,10 @@ func (p profiles) packageInput() []string {
 	}
 	return pack
 }
+
+func check(msg string, err error) {
+	if err != nil {
+		fmt.Println(msg, err)
+		os.Exit(2)
+	}
+}

@@ -6,8 +6,6 @@ import (
 	"sort"
 	"strconv"
 	"text/tabwriter"
-
-	"github.com/Saied74/skyham/pkg/skylog"
 )
 
 //gConvert converts a slice of strings to a slice of float64 with some
@@ -45,7 +43,7 @@ func gCheck(gt []float64) error {
 //todo this check is poor, re-write
 func check(msg string, err error) {
 	if err != nil {
-		skylog.ErrorLog.Println(msg, err)
+		fmt.Println(msg, err)
 		os.Exit(2)
 	}
 }

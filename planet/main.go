@@ -34,7 +34,7 @@ type profiles map[string]profile
 
 //When indexing through map keys, the order in indeterminant.  This list is to
 //make sure that it is not indeterminant and the map is traversed in this order.
-var profileList = []string{year, month, day, hour, minute, latitude,
+var profileList = []string{year, month, day, hour, minute, second, latitude,
 	longitude, elevation}
 
 func main() {
@@ -45,7 +45,7 @@ func main() {
 	// pd := &planetdata
 
 	//get base (including Earth) and planet (currently Jupiter) data
-	bd.ReadData("../data/basedata.csv")
+	// bd.ReadData("../data/basedata.csv")
 	bd.ReadData("../data/jupiterdata.csv")
 
 	//temparirly locate the CLI here
@@ -58,6 +58,7 @@ func main() {
 		//list data inside the profiles and edit as needed.
 		p.listItems(reader)
 		p = *p.getInput(reader)
+		// p.listItems(reader)
 
 		pack := p.packageInput()
 		// gt := p.makeGt()
@@ -71,8 +72,8 @@ func main() {
 		bd.CalcPeriod()
 		bd.CalcOPangles()
 		bd.CalcM()
-		bd.CalcE()
 
+		bd.CalcE()
 		erSunOP := bd.EarthOPVec()
 		fmt.Println("Earth OPV", erSunOP)
 		prSunOP := bd.PlanetOPVec()
@@ -83,11 +84,30 @@ func main() {
 
 		bd.PrintBaseItems()
 
-		eP3 := skymath.E3(basedata["earthP"].Value)
-		eTau1 := skymath.E1(basedata["earthTilt"].Value)
-		eMGamma3 := skymath.E3(-basedata["sidAngle"].Value)
-		eMPhi3 := skymath.E3(-basedata["locallong"].Value)
-		eLam2 := skymath.E2(basedata["locallat"].Value)
+		earthP, ok := basedata["earthP"]
+		if !ok {
+			check("bad lookup: earthP", nil)
+		}
+		eP3 := skymath.E3(earthP.Value)
+		eTau1 := skymath.E1(dataops.EarthTilt)
+
+		sidAngle, ok := basedata["sidAngle"]
+		if !ok {
+			check("bad lookup: sidAngle", nil)
+		}
+		eMGamma3 := skymath.E3(-sidAngle.Value)
+
+		locallong, ok := basedata["locallong"]
+		if !ok {
+			check("bad lookup: locallong", nil)
+		}
+		eMPhi3 := skymath.E3(-locallong.Value)
+
+		locallat, ok := basedata["locallat"]
+		if !ok {
+			check("bad lookup: locallat", nil)
+		}
+		eLam2 := skymath.E2(locallat.Value)
 		eNU := skymath.Euler{
 			[3]float64{0.0, 1.0, 0.0},
 			[3]float64{0.0, 0.0, 1.0},
@@ -100,15 +120,23 @@ func main() {
 		step4 := skymath.Mply(eLam2, step3)
 		sciTOenu := skymath.Mply(eNU, step4)
 
-		// fmt.Printf("\n\n")
-		// for _, row := range sciTOenu {
-		// 	fmt.Printf("%f   %f   %f\n", row[0], row[1], row[2])
-		// }
-		// fmt.Println()
+		planetArgPre, ok := basedata["planetArgPre"]
+		if !ok {
+			check("bad lookup: planetArgPre", nil)
+		}
+		p3LittleOmega := skymath.E3(planetArgPre.Value)
 
-		p3LittleOmega := skymath.E3(basedata["planetArgPre"].Value)
-		pI1 := skymath.E1(basedata["planetInc"].Value)
-		p3BigOmega := skymath.E3(basedata["planetNode"].Value)
+		planetInc, ok := basedata["planetInc"]
+		if !ok {
+			check("bad lookup: planetInc", nil)
+		}
+		pI1 := skymath.E1(planetInc.Value)
+
+		planetNode, ok := basedata["planetNode"]
+		if !ok {
+			check("bad lookup: planetNode", nil)
+		}
+		p3BigOmega := skymath.E3(planetNode.Value)
 
 		step5 := skymath.Mply(pI1, p3LittleOmega)
 		oppTOsci := skymath.Mply(p3BigOmega, step5)
@@ -118,29 +146,21 @@ func main() {
 		// fmt.Printf("Planet to sun vector in ENU: %e   %e   %e\n", prSunENU[0], prSunENU[1], prSunENU[2])
 
 		//======================
-		e3LittleOmega := skymath.E3(basedata["argPre"].Value)
-		eI1 := skymath.E1(basedata["earthInc"].Value)
-		e3BigOmega := skymath.E3(basedata["earthNode"].Value)
+		argPre, ok := basedata["argPre"]
+		if !ok {
+			check("bad lookup: argPre", nil)
+		}
+		e3LittleOmega := skymath.E3(argPre.Value)
+		eI1 := skymath.E1(dataops.EarthInc)
+		e3BigOmega := skymath.E3(dataops.EarthNode)
 
 		step6 := skymath.Mply(eI1, e3LittleOmega)
 		opeTOsci := skymath.Mply(e3BigOmega, step6)
 
-		// fmt.Printf("\n\n")
-		// for _, row := range e3BigOmega {
-		// 	fmt.Printf("%f   %f   %f\n", row[0], row[1], row[2])
-		// }
-		// fmt.Println()
-		//
-		// fmt.Printf("\n\n")
-		// for _, row := range opeTOsci {
-		// 	fmt.Printf("%f   %f   %f\n", row[0], row[1], row[2])
-		// }
-		// fmt.Println()
 		erSunSCI := skymath.Vply(opeTOsci, erSunOP)
 
 		//==================   Important Vector   =================================
 		erSunENU := skymath.Vply(sciTOenu, erSunSCI)
-		// fmt.Printf("Earth to sun vector in ENU: %e   %e   %e\n", erSunENU[0], erSunENU[1], erSunENU[2])
 
 		locTOearthRecef := bd.CalcLocalVec()
 		// fmt.Printf("Local vetor in ECEF frame: %e   %e   %e\n", locTOearthRecef[0], locTOearthRecef[1], locTOearthRecef[2])
@@ -150,17 +170,6 @@ func main() {
 
 		erLocENU := skymath.Vply(ecefTOenu, locTOearthRecef)
 
-		// fmt.Printf("\n\n")
-		// for _, row := range ecefTOenu {
-		// 	fmt.Printf("%f   %f   %f\n", row[0], row[1], row[2])
-		// }
-		// fmt.Println()
-
-		// fmt.Printf("\n\n")
-		// for _, row := range e3MPhi {
-		// 	fmt.Printf("%f   %f   %f\n", row[0], row[1], row[2])
-		// }
-		// fmt.Println()
 		second := skymath.Vadd(erSunENU, erLocENU)
 		prENU := skymath.Vsub(prSunENU, second)
 		fmt.Printf("\n")
