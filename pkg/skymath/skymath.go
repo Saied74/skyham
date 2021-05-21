@@ -1,6 +1,7 @@
 package skymath
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -96,12 +97,29 @@ func CalcBetaEpsilon(v Vec) (beta, epsilon float64) {
 
 	d := math.Sqrt(x*x + y*y)
 	sBeta := x / d
-	tEpsilon := z / d
-	beta = math.Asin(sBeta)
-	beta = ToDegrees(beta)
-	if beta < 0.0 {
-		beta += 360.0
+	cBeta := y / d
+	fmt.Println(sBeta)
+	fmt.Println(cBeta)
+	if sBeta > 0.0 && cBeta > 0.0 {
+		beta = math.Asin(sBeta)
 	}
+	if sBeta > 0.0 && cBeta < 0.0 {
+
+		beta = math.Pi/2 + math.Asin(-cBeta)
+	}
+	if sBeta < 0.0 && cBeta < 0.0 {
+		beta = math.Pi + math.Asin(-sBeta)
+	}
+	if sBeta < 0.0 && cBeta > 0.0 {
+		beta = math.Pi + math.Pi/2 + math.Asin(cBeta)
+	}
+	tEpsilon := z / d
+	// beta = math.Asin(sBeta)
+	beta = ToDegrees(beta)
+	// fmt.Printf("Raw Beta: %f\n", beta)
+	// if beta < 0.0 {
+	// 	beta += 360.0
+	// }
 	epsilon = math.Atan(tEpsilon)
 	epsilon = ToDegrees(epsilon)
 	return beta, epsilon

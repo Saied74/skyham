@@ -18,17 +18,19 @@ const (
 	sideralJ2000 = 280.46          // (Gamma) Greenwich sideral angle at J2000 epoch in degrees
 	//EarthTilt is the tilt of the earth's axis of rotation relative to the equotorial plane
 	EarthTilt = 23.439     // (Tau) Earth's tilt in degrees
-	earthMass = 5.97E+24   // (m) Mass of earth in kg
+	earthMass = 5.9736E+24 // (m) Mass of earth in kg
 	earthSMA  = 1.00000011 // (a) Earth's semi major axis in AU
 	//EarthInc is the inclination of the mean earth orbital plane
-	EarthInc = 0.00005     // (i) earth inclination
-	earthEcc = 0.016710224 // (e) Eccentricity of the Earth
+	EarthInc = 0.00005    // (i) earth inclination
+	earthEcc = 0.01671022 // (e) Eccentricity of the Earth
 	//EarthNode is the longitude of the Earth's asencing node
-	EarthNode          = 11.26064     // (OMEGA) Earth longitude of the ascending node in degrees
+	EarthNode          = -11.26064    // (OMEGA) Earth longitude of the ascending node in degrees
 	earthLongPrehelian = 102.94719    // longitude of the perihelion
 	earthmeanLong      = 100.46435    //mean longitude
 	equotorialA        = 6378137.0    // (a) equotorial semi-major axis of earth
 	polarB             = 6356752.3142 // (b) polar semi-major axis of earth
+	//PlanetName stores the name of the planet of interest for file lookup
+	PlanetName = "planetName"
 )
 
 //BaseItem is the basic data used for the parameters of the calculations
@@ -51,24 +53,20 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 		return fmt.Errorf("time format is incorrect %v", err)
 	}
 	lat := strings.Split(pack[6], " ")
-	if len(lat) != 4 {
-		return fmt.Errorf("Latitude had %d fields it should have 4", len(lat))
+	if len(lat) != 2 {
+		return fmt.Errorf("Latitude had %d fields it should have 2", len(lat))
 	}
-	d, err := strconv.ParseFloat(lat[0], 64)
+	localLat, err := strconv.ParseFloat(lat[0], 64)
 	if err != nil {
-		return fmt.Errorf("lattitude degrees did not convert to number %v", err)
+		return fmt.Errorf("lattitude %s did not convert to number %v", lat[0], err)
 	}
-	m, err := strconv.ParseFloat(lat[1], 64)
-	if err != nil {
-		return fmt.Errorf("lattitude minutes did not convert to number %v", err)
-	}
-	s, err := strconv.ParseFloat(lat[2], 64)
-	if err != nil {
-		return fmt.Errorf("lattitude seconds did not convert to number %v", err)
-	}
-	localLat := d + m/60 + s/3600.0
-	if lat[3] == "S" {
+	lat[1] = strings.ToUpper(lat[1])
+	switch lat[1] {
+	case "S":
 		localLat = -localLat
+	case "N":
+	default:
+		return fmt.Errorf("latitude must be N or S (uppeer or lower case) %s", lat[1])
 	}
 	dd["locallat"] = BaseItem{
 		Name:        "locallat",
@@ -78,22 +76,21 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 	}
 
 	long := strings.Split(pack[7], " ")
-	if len(long) != 4 {
-		return fmt.Errorf("longitude had %d fields it should have 4", len(long))
+	if len(long) != 2 {
+		return fmt.Errorf("longitude had %d fields it should have 2", len(long))
 	}
-	d, err = strconv.ParseFloat(long[0], 64)
+	localLong, err := strconv.ParseFloat(long[0], 64)
 	if err != nil {
-		return fmt.Errorf("longitude degrees did not convert to number %v", err)
+		return fmt.Errorf("longitude %s did not convert to number %v", long[0], err)
 	}
-	m, err = strconv.ParseFloat(long[1], 64)
-	if err != nil {
-		return fmt.Errorf("longitude minutes did not convert to number %v", err)
+	long[1] = strings.ToUpper(long[1])
+	switch long[1] {
+	case "W":
+		localLong = -localLong
+	case "E":
+	default:
+		return fmt.Errorf("longitude must be E or W (uppeer or lower case) %s", long[1])
 	}
-	s, err = strconv.ParseFloat(long[2], 64)
-	if err != nil {
-		return fmt.Errorf("longitude seconds did not convert to number %v", err)
-	}
-	localLong := d + m/60 + s/3600.0
 
 	dd["locallong"] = BaseItem{
 		Name:        "locallong",
@@ -112,17 +109,25 @@ func (bd *BaseItems) ProcInputs(pack []string) error {
 		Numonic:     "h",
 		Description: "Meters: elevation at the location of interest",
 	}
+	dd["planetName"] = BaseItem{
+		Name:        "planetName",
+		Value:       0.0,
+		Numonic:     strings.ToLower(pack[9]),
+		Description: "Name of the planet of interest",
+	}
 	return nil
 }
 
 //ReadData reads the base data file and returns a map of the input base data
-func (bd *BaseItems) ReadData(filename string) {
+func (bd *BaseItems) ReadData(filename string) error {
 	var err error
 	dd := *bd
 	dat, err := ioutil.ReadFile(filename)
-	check("Base data read error: ", err)
+	if err != nil {
+		return fmt.Errorf("error reading planet file %v", err)
+	}
 	if len(dat) == 0 {
-		check("base data file was empty: ", nil)
+		return fmt.Errorf("planet %v file was empty", filename)
 	}
 	lines := strings.Split(string(dat), "\n")
 	for i, line := range lines {
@@ -132,6 +137,7 @@ func (bd *BaseItems) ReadData(filename string) {
 		}
 		dd[lineItems[0]] = assign(lineItems, lineItems[0])
 	}
+	return nil
 }
 
 //CalcPeriod calculates the period of earth and the designated planet around the sun

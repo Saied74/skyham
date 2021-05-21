@@ -40,6 +40,18 @@ func gCheck(gt []float64) error {
 
 // TODO: write an auditData function
 
+//GetItem checks to make sure the item exists in basedata and returns the item.
+//If item does not exist, it writes an error log and exits the program.
+func (bd *BaseItems) GetItem(item string) float64 {
+	dd := *bd
+	d, ok := dd[item]
+	if !ok {
+		fmt.Printf("item %s did not exist - terminating program\n", item)
+		os.Exit(2)
+	}
+	return d.Value
+}
+
 //todo this check is poor, re-write
 func check(msg string, err error) {
 	if err != nil {

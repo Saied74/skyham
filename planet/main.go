@@ -9,6 +9,8 @@ import (
 	"github.com/Saied74/skyham/pkg/skymath"
 )
 
+//These constants are for the input and output.  The constants for the planet
+//data are in the dataops package.
 const (
 	year      = "year"
 	month     = "month"
@@ -19,6 +21,7 @@ const (
 	latitude  = "latitude"
 	longitude = "longitude"
 	elevation = "elevation"
+	planet    = "planet"
 )
 
 //profile and profiles are for collecting the user input.  In an excel program
@@ -35,18 +38,12 @@ type profiles map[string]profile
 //When indexing through map keys, the order in indeterminant.  This list is to
 //make sure that it is not indeterminant and the map is traversed in this order.
 var profileList = []string{year, month, day, hour, minute, second, latitude,
-	longitude, elevation}
+	longitude, elevation, planet}
 
 func main() {
 	//build the structure to hold base (including earth and sun) and planet data
 	basedata := make(dataops.BaseItems)
-	// planetdata := make(fileops.BaseItems)
 	bd := &basedata
-	// pd := &planetdata
-
-	//get base (including Earth) and planet (currently Jupiter) data
-	// bd.ReadData("../data/basedata.csv")
-	bd.ReadData("../data/jupiterdata.csv")
 
 	//temparirly locate the CLI here
 	printIntro()
@@ -55,121 +52,140 @@ func main() {
 	var p = *getProfile() // first get a blank profile.
 
 	for {
-		//list data inside the profiles and edit as needed.
-		p.listItems(reader)
-		p = *p.getInput(reader)
-		// p.listItems(reader)
+		//In the following loop, inputs are gathered and the file is read and
+		//processed.  If everything is good, it will break and process the data
+		for {
+			//list data inside the profiles and edit as needed.
+			p = *p.getInput(reader)
+			pack := p.packageInput()
+			err := bd.ProcInputs(pack)
+			if err != nil {
+				fmt.Println("bad input, try again: ", err)
+			}
 
-		pack := p.packageInput()
-		// gt := p.makeGt()
-		err := bd.ProcInputs(pack)
-		// err := basedata.JTime(gt)
-		if err != nil {
-			fmt.Println("bad input: ", err)
-			os.Exit(2)
+			planetName, ok := basedata[dataops.PlanetName]
+			if !ok {
+				check("bad lookup: planetName", nil)
+			}
+			fileName := "../data/" + planetName.Numonic + "data.csv"
+			//get planet (currently Jupiter) data
+			err = bd.ReadData(fileName)
+			if err != nil {
+				fmt.Printf("error in reading the planet file %v\n", err)
+			}
+			if err == nil && ok {
+				break
+			}
 		}
 
+		//first, we calc the earth period, the angle, and mean and Eccentrioc anomaly
 		bd.CalcPeriod()
 		bd.CalcOPangles()
 		bd.CalcM()
-
 		bd.CalcE()
-		erSunOP := bd.EarthOPVec()
-		fmt.Println("Earth OPV", erSunOP)
-		prSunOP := bd.PlanetOPVec()
-		fmt.Println("Planet OPV", prSunOP)
 
+		//<================= Calculate the Orbital Plane Vectors ==================>
+		erSunOP := bd.EarthOPVec()
+		prSunOP := bd.PlanetOPVec()
+
+		//<================= Location to "Earth center" vector ====================>
+		locTOearthRecef := bd.CalcLocalVec()
+
+		//Temperary print of the primary vectors
+		// fmt.Println("Earth OPV", erSunOP)
+		// fmt.Println("Planet OPV", prSunOP)
+		// fmt.Println("Location to ECEF", locTOearthRecef)
+
+		//Then calculate the Sideral angle at the requested time as well as the earth
+		//spin axis precession
 		bd.SidAngle()
 		bd.EarthPrecession()
 
-		bd.PrintBaseItems()
+		//At this point, all input and intermediate data is read and calculated
+		// bd.PrintBaseItems()
 
-		earthP, ok := basedata["earthP"]
-		if !ok {
-			check("bad lookup: earthP", nil)
-		}
-		eP3 := skymath.E3(earthP.Value)
+		//<==== Calculate Sun Centred Interal to East North Up Transformation ====>
+
+		//Check for any errors in building the basedata data structure
+		earthP := bd.GetItem("earthP")
+		sidAngle := bd.GetItem("sidAngle")
+		locallong := bd.GetItem("locallong")
+		locallat := bd.GetItem("locallat")
+
+		//Then build the Euler transformation matrices
+		eP3 := skymath.E3(earthP)
 		eTau1 := skymath.E1(dataops.EarthTilt)
-
-		sidAngle, ok := basedata["sidAngle"]
-		if !ok {
-			check("bad lookup: sidAngle", nil)
-		}
-		eMGamma3 := skymath.E3(-sidAngle.Value)
-
-		locallong, ok := basedata["locallong"]
-		if !ok {
-			check("bad lookup: locallong", nil)
-		}
-		eMPhi3 := skymath.E3(-locallong.Value)
-
-		locallat, ok := basedata["locallat"]
-		if !ok {
-			check("bad lookup: locallat", nil)
-		}
-		eLam2 := skymath.E2(locallat.Value)
+		eMGamma3 := skymath.E3(-sidAngle)
+		eMPhi3 := skymath.E3(-locallong)
+		eLam2 := skymath.E2(locallat)
 		eNU := skymath.Euler{
 			[3]float64{0.0, 1.0, 0.0},
 			[3]float64{0.0, 0.0, 1.0},
 			[3]float64{1.0, 0.0, 0.0},
 		}
 
+		//And multiply them to get the SCI to ENU transformation matrix
 		step1 := skymath.Mply(eTau1, eP3)
 		step2 := skymath.Mply(eMGamma3, step1)
 		step3 := skymath.Mply(eMPhi3, step2)
 		step4 := skymath.Mply(eLam2, step3)
 		sciTOenu := skymath.Mply(eNU, step4)
 
-		planetArgPre, ok := basedata["planetArgPre"]
-		if !ok {
-			check("bad lookup: planetArgPre", nil)
-		}
-		p3LittleOmega := skymath.E3(planetArgPre.Value)
+		//<============== Calculate the Planet Centered Intertial =================>
+		//<=============== to Sun Centric Inertial transformation ================>
 
-		planetInc, ok := basedata["planetInc"]
-		if !ok {
-			check("bad lookup: planetInc", nil)
-		}
-		pI1 := skymath.E1(planetInc.Value)
+		//Check for any errors in building the basedata data structure
+		planetArgPre := bd.GetItem("planetArgPre")
+		planetInc := bd.GetItem("planetInc")
+		planetNode := bd.GetItem("planetNode")
 
-		planetNode, ok := basedata["planetNode"]
-		if !ok {
-			check("bad lookup: planetNode", nil)
-		}
-		p3BigOmega := skymath.E3(planetNode.Value)
+		//Then build the Euler transformation matrices
+		p3LittleOmega := skymath.E3(planetArgPre)
+		pI1 := skymath.E1(planetInc)
+		p3BigOmega := skymath.E3(planetNode)
 
+		//And multiply them to get the OPI to SCI transformation matrix
 		step5 := skymath.Mply(pI1, p3LittleOmega)
 		oppTOsci := skymath.Mply(p3BigOmega, step5)
+		oppTOenu := skymath.Mply(sciTOenu, oppTOsci)
 
-		prSunSCI := skymath.Vply(oppTOsci, prSunOP)
-		prSunENU := skymath.Vply(sciTOenu, prSunSCI)
-		// fmt.Printf("Planet to sun vector in ENU: %e   %e   %e\n", prSunENU[0], prSunENU[1], prSunENU[2])
+		//<============== Calculate the Earth Centered Intertial ==================>
+		//<=============== to Sun Centred Inertial transformation ================>
 
-		//======================
-		argPre, ok := basedata["argPre"]
-		if !ok {
-			check("bad lookup: argPre", nil)
-		}
-		e3LittleOmega := skymath.E3(argPre.Value)
+		//Check for any errors in building the basedata data structure
+		argPre := bd.GetItem("argPre")
+
+		//Then build the Euler transformation matrices
+		e3LittleOmega := skymath.E3(argPre)
 		eI1 := skymath.E1(dataops.EarthInc)
 		e3BigOmega := skymath.E3(dataops.EarthNode)
 
+		//And multiply them to get the OPI to SCI transformation matrix
 		step6 := skymath.Mply(eI1, e3LittleOmega)
 		opeTOsci := skymath.Mply(e3BigOmega, step6)
 
+		//<============= Calculate the Earth Centered Earth Fixed =================>
+		//<================== to East North Up transformation =====================>
+
+		// prSunSCI := skymath.Vply(oppTOsci, prSunOP)
+		prSunENU := skymath.Vply(oppTOenu, prSunOP)
 		erSunSCI := skymath.Vply(opeTOsci, erSunOP)
-
-		//==================   Important Vector   =================================
 		erSunENU := skymath.Vply(sciTOenu, erSunSCI)
-
-		locTOearthRecef := bd.CalcLocalVec()
-		// fmt.Printf("Local vetor in ECEF frame: %e   %e   %e\n", locTOearthRecef[0], locTOearthRecef[1], locTOearthRecef[2])
 
 		step7 := skymath.Mply(eLam2, eMPhi3)
 		ecefTOenu := skymath.Mply(eNU, step7)
 
 		erLocENU := skymath.Vply(ecefTOenu, locTOearthRecef)
+		// opeTOenu := skymath.Mply(sciTOenu, opeTOsci)
 
+		// prM(eMGamma3, "earthMinusGAMMA3")
+		// prM(sciTOenu, "sciTOenu")
+		// prM(oppTOsci, "oppTOsci")
+		// prM(opeTOsci, "opeTOsci")
+		// prM(opeTOenu, "opeTOenu")
+		// prM(ecefTOenu, "ecefTOenu")
+
+		//< Add the vectors up to find the location of the planet in the local sky
 		second := skymath.Vadd(erSunENU, erLocENU)
 		prENU := skymath.Vsub(prSunENU, second)
 		fmt.Printf("\n")

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Saied74/skyham/pkg/dataops"
+	"github.com/Saied74/skyham/pkg/skymath"
 )
 
 func printaid(basedata map[string]dataops.BaseItem) {
@@ -62,19 +63,24 @@ func getProfile() *profiles {
 			input:     "0",
 		},
 		latitude: {
-			firstMsg:  "Enter latitude (N-S) of interest (see example): ",
+			firstMsg:  "Enter latitude (N-S) of interest in decimal format: ",
 			secondMsg: "Latitude of interest is: ",
-			input:     "34 55 42 S",
+			input:     "34.9285 S",
 		},
 		longitude: {
-			firstMsg:  "Enter longitude (E-W) of interest (see exmaple): ",
+			firstMsg:  "Enter longitude (E-W) of interest in decimal format: ",
 			secondMsg: "Longitude of interest is: ",
-			input:     "138 36 3 E",
+			input:     "138.6007 E",
 		},
 		elevation: {
 			firstMsg:  "Enter the elevation of interst in feet: ",
 			secondMsg: "Elevation is: ",
 			input:     "130",
+		},
+		planet: {
+			firstMsg:  "Enter the planet of interst: ",
+			secondMsg: "The planet is: ",
+			input:     "Jupiter",
 		},
 	}
 }
@@ -94,6 +100,7 @@ func (p profiles) getInput(reader *bufio.Reader) *profiles {
 	var c = false
 	eol := "\n"
 	for {
+		p.listItems(reader)
 		fmt.Println("Enter the number of item you want to change")
 		fmt.Println("Enter c to continue, q to quit")
 		input, _ := reader.ReadString('\n')
@@ -117,6 +124,8 @@ func (p profiles) getInput(reader *bufio.Reader) *profiles {
 			p[longitude] = getNumItem(p[longitude], reader)
 		case "9":
 			p[elevation] = getNumItem(p[elevation], reader)
+		case "10":
+			p[planet] = getNumItem(p[planet], reader)
 		case "c":
 			c = true
 		case "C":
@@ -153,6 +162,7 @@ func (p profiles) packageInput() []string {
 		p[latitude].input,
 		p[longitude].input,
 		p[elevation].input,
+		p[planet].input,
 	}
 	return pack
 }
@@ -160,6 +170,13 @@ func (p profiles) packageInput() []string {
 func check(msg string, err error) {
 	if err != nil {
 		fmt.Println(msg, err)
-		os.Exit(2)
+		// os.Exit(2)
+	}
+}
+
+func prM(m skymath.Euler, h string) {
+	fmt.Printf("\n%s:\n", h)
+	for _, item := range m {
+		fmt.Printf("%f    %f    %f\n", item[0], item[1], item[2])
 	}
 }
