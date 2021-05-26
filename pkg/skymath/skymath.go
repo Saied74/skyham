@@ -1,7 +1,6 @@
 package skymath
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -98,8 +97,8 @@ func CalcBetaEpsilon(v Vec) (beta, epsilon float64) {
 	d := math.Sqrt(x*x + y*y)
 	sBeta := x / d
 	cBeta := y / d
-	fmt.Println(sBeta)
-	fmt.Println(cBeta)
+	// fmt.Println(sBeta)
+	// fmt.Println(cBeta)
 	if sBeta > 0.0 && cBeta > 0.0 {
 		beta = math.Asin(sBeta)
 	}
@@ -114,12 +113,9 @@ func CalcBetaEpsilon(v Vec) (beta, epsilon float64) {
 		beta = math.Pi + math.Pi/2 + math.Asin(cBeta)
 	}
 	tEpsilon := z / d
-	// beta = math.Asin(sBeta)
+
 	beta = ToDegrees(beta)
-	// fmt.Printf("Raw Beta: %f\n", beta)
-	// if beta < 0.0 {
-	// 	beta += 360.0
-	// }
+
 	epsilon = math.Atan(tEpsilon)
 	epsilon = ToDegrees(epsilon)
 	return beta, epsilon
@@ -133,4 +129,49 @@ func ToRadians(d float64) float64 {
 //ToDegrees converts radians to degrees modulo 360
 func ToDegrees(r float64) float64 {
 	return math.Mod((r/math.Pi)*180, 360.0)
+}
+
+//CalcPolar converts cartesian to polar coordinates
+func CalcPolar(x, y float64) (r, t float64) {
+	p := math.Pi
+	r = math.Sqrt(math.Pow(x, 2) + math.Pow(y, 2))
+	s := y / r
+	c := x / r
+	if s > 0 && c > 0 {
+		t = math.Mod(math.Asin(s), 2*p)
+		return r, (t / p) * 180
+	}
+	if s > 0 && c < 0 {
+		t = math.Mod(p-math.Asin(s), 2*p)
+		return r, (t / p) * 180
+	}
+	if s < 0 && c < 0 {
+		t = math.Mod(p-math.Asin(s), 2*p)
+		return r, (t / p) * 180
+	}
+	t = math.Mod(2*p+math.Asin(s), 2*p)
+	return r, (t / p) * 180
+
+}
+
+//CalcSpherical converts from cartesian to spherical coordinates
+func CalcSpherical(x, y, z float64) (r, t, phi float64) {
+	pi := math.Pi
+	r = math.Sqrt(math.Pow(x, 2) + math.Pow(y, 2))
+	phi = (math.Atan(z/r) / pi) * 180
+	if x > 0 && y > 0 {
+		t = math.Mod(math.Asin(x/r), 2*pi)
+		return r, (t / pi) * 180, phi
+	}
+	if x < 0 && y < 0 {
+		t = math.Mod(pi/2+math.Asin(-y/r), 2*pi)
+		return r, (t / pi) * 180, phi
+	}
+	if x < 0 && y < 0 {
+		t = math.Mod(pi+math.Asin(-x/r), 2*pi)
+		return r, (t / pi) * 180, phi
+	}
+	t = math.Mod((3*pi/2)+math.Asin(y/r), 2*pi)
+	return r, (t / pi) * 180, phi
+
 }

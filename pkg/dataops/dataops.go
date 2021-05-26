@@ -247,8 +247,19 @@ func (bd *BaseItems) JTime(gTStrings []string) error {
 }
 
 //CalcM calculates the earth and planet mean anomaly at the specified epoch
-func (bd *BaseItems) CalcM() {
+func (bd *BaseItems) CalcM(sat string) {
 	dd := *bd
+	var epoch float64
+	if sat == "satellite" || sat == "sat" {
+		t, ok := dd["satEpoch"]
+		if !ok {
+			check("bad lookup: satEpoch", nil)
+		}
+		epoch = t.Value
+	} else {
+		epoch = t0
+	}
+
 	meanAno, ok := dd["meanAno"]
 	if !ok {
 		check("bad lookup: meanAno", nil)
@@ -262,7 +273,11 @@ func (bd *BaseItems) CalcM() {
 	if !ok {
 		check("bad lookup: earthPeriod", nil)
 	}
-	m := m0 + (2.0*math.Pi*(now.Value-t0))/earthPeriod.Value
+	delT := now.Value - epoch
+	// if delT < 0.0 {
+	// 	delT = 0.0
+	// }
+	m := m0 + (2.0*math.Pi*delT)/earthPeriod.Value
 	m = math.Mod(m, 2.0*math.Pi)
 	dd["earthM"] = BaseItem{
 		Name:        "earthM",
@@ -272,8 +287,14 @@ func (bd *BaseItems) CalcM() {
 	}
 
 	m0 = (dd["planetMeanAno"].Value / 180.0) * math.Pi
-	m = m0 + (2.0*math.Pi*(dd["now"].Value-t0))/dd["planetPeriod"].Value
+	delT = dd["now"].Value - epoch
+	if delT < 0.0 {
+		delT = 0.0
+	}
+	m = m0 + (2.0*math.Pi*delT)/dd["planetPeriod"].Value
+
 	m = math.Mod(m, 2.0*math.Pi)
+
 	dd["planetM"] = BaseItem{
 		Name:        "planetM",
 		Value:       skymath.ToDegrees(m),
@@ -283,31 +304,35 @@ func (bd *BaseItems) CalcM() {
 }
 
 //CalcE calculates earth and planet Eccentricity at specified epoch
-func (bd *BaseItems) CalcE() {
+func (bd *BaseItems) CalcE(sat string) {
+	var bigM, bigE, oldE float64
 	dd := *bd
-	earthM, ok := dd["earthM"]
-	if !ok {
-		check("bad lookup: earthM", nil)
-	}
-	bigM := earthM.Value
-	bigM = skymath.ToRadians(bigM)
-	bigE := 0.0
-	oldE := 0.0
-	for {
-		oldE = bigE
-		bigE = earthEcc*math.Sin(bigE) + bigM
-		test := 100.0 * math.Abs((bigE-oldE)/oldE)
-		if test < 0.01 { //0.01% error
-			break
+	if sat != "satellite" {
+		earthM, ok := dd["earthM"]
+		if !ok {
+			check("bad lookup: earthM", nil)
+		}
+		bigM = earthM.Value
+		bigM = skymath.ToRadians(bigM)
+		bigE = 0.0
+		// oldE = 0.0
+		for {
+			oldE = bigE
+			bigE = earthEcc*math.Sin(bigE) + bigM
+			test := 100.0 * math.Abs((bigE-oldE)/oldE)
+			if test < 0.01 { //0.01% error
+				break
+			}
+		}
+		bigE = math.Mod(bigE, 2.0*math.Pi)
+		dd["earthE"] = BaseItem{
+			Name:        "earthE",
+			Value:       skymath.ToDegrees(bigE),
+			Numonic:     "E",
+			Description: "Degrees: Earth Eccentrioc Anomaly",
 		}
 	}
-	bigE = math.Mod(bigE, 2.0*math.Pi)
-	dd["earthE"] = BaseItem{
-		Name:        "earthE",
-		Value:       skymath.ToDegrees(bigE),
-		Numonic:     "E",
-		Description: "Degrees: Earth Eccentrioc Anomaly",
-	}
+
 	planetM, ok := dd["planetM"]
 	if !ok {
 		check("bad lookup: planetM", nil)
@@ -320,6 +345,7 @@ func (bd *BaseItems) CalcE() {
 	}
 	e := planetEcc.Value
 	bigE = 0.0
+
 	for {
 		oldE = bigE
 		bigE = e*math.Sin(bigE) + bigM
@@ -328,6 +354,7 @@ func (bd *BaseItems) CalcE() {
 			break
 		}
 	}
+
 	bigE = math.Mod(bigE, 2.0*math.Pi)
 	dd["planetE"] = BaseItem{
 		Name:        "planetE",
@@ -390,11 +417,12 @@ func (bd *BaseItems) SidAngle() {
 		check("bad lookup: now", nil)
 	}
 	deltaT := now.Value - t0
-	sidAngle := math.Mod((360.0/sidDay)*deltaT*24.0, 360)
+	sidAngle := (360.0 / sidDay) * deltaT * 24.0
 	sidAngle += sideralJ2000
+
 	dd["sidAngle"] = BaseItem{
 		Name:        "sidAngle",
-		Value:       sidAngle,
+		Value:       math.Mod(sidAngle, 360),
 		Numonic:     "gamma",
 		Description: "Degrees - Greenwich Sideral Angle at the specified time",
 	}

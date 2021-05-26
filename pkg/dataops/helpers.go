@@ -2,11 +2,64 @@ package dataops
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 )
+
+//TODO: rationalize the two time conversion functions.
+
+//tleFloat strips leading and trailing spaces and converts to float64
+func tleFloat(s string) (float64, error) {
+	for {
+		if strings.HasPrefix(s, " ") {
+			s = strings.TrimLeft(s, " ")
+		} else {
+			break
+		}
+
+	}
+	for {
+		if strings.HasSuffix(s, " ") {
+			s = strings.TrimRight(s, " ")
+		} else {
+			break
+		}
+
+	}
+	// TODO: check that the length of s is not zero after all the trimming
+	x, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0.0, fmt.Errorf("dit not convert to float")
+	}
+	return x, nil
+}
+
+//JSatTime converts from the TLE format to JD time.
+func JSatTime(gTime []float64, offset float64) (float64, error) {
+
+	year := gTime[0]
+	month := gTime[1]
+	day := gTime[2]
+	hour := gTime[3]
+	minute := gTime[4]
+	second := gTime[5]
+
+	//This is the formula from Don Koks' paper
+	a := math.Floor((14.0 - month) / 12.0)
+	y := year + 4800.0 - a
+	m := month + 12.0*a - 3.0
+	fmt.Println("aym: ", a, y, m)
+
+	jd1 := day + math.Floor((153.0*m+2.0)/5.0) + 365*y + math.Floor(y/4.0)
+	jd2 := math.Floor(y/100.0) - math.Floor(y/400.0) + 32045.0
+	jd3 := (hour - 12.0 + minute/60.0 + second/3600.0) / 24.0
+	// fmt.Printf("JD1, 2, and 3 %f %f %f \n: ", jd1, jd2, jd3)
+	return jd1 - jd2 + jd3 + offset, nil
+}
 
 //gConvert converts a slice of strings to a slice of float64 with some
 //only used in JD Calc.
@@ -92,7 +145,6 @@ func (bd *BaseItems) PrintBaseItems() {
 	for _, key := range sk {
 		s := dd[key]
 		buf := []byte(fmt.Sprintf("%s\t%s\t%e\t%s\t%s\n", key, s.Name, s.Value, s.Numonic, s.Description))
-		// fmt.Fprintln(w, dp.Name, dp.Value, dp.Numonic, dp.Description)
 		w.Write(buf)
 	}
 	fmt.Printf("\n")

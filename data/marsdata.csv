@@ -1,0 +1,8 @@
+
+planetMass,6.39e23,m,Mass of Mars in kg
+planetSMA,1.52366231,a,Mars's semi major axis in AU
+planetInc,1.85061,i,Mars orbital inclination
+planetEcc,0.09341233,e,Eccentricity of Mars
+planetLongPre,336.04084,LP,Longitude of the Mars prehelion
+planetMeanLong,355.45332,ML, Mars mean longitude
+planetNode,49.57854,OMEGA,Longitude of the Mars ascending node

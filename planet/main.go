@@ -5,24 +5,25 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Saied74/skyham/pkg/cli"
 	"github.com/Saied74/skyham/pkg/dataops"
 	"github.com/Saied74/skyham/pkg/skymath"
 )
 
 //These constants are for the input and output.  The constants for the planet
 //data are in the dataops package.
-const (
-	year      = "year"
-	month     = "month"
-	day       = "day"
-	hour      = "hour"
-	minute    = "minute"
-	second    = "second"
-	latitude  = "latitude"
-	longitude = "longitude"
-	elevation = "elevation"
-	planet    = "planet"
-)
+// const (
+// 	year      = "year"
+// 	month     = "month"
+// 	day       = "day"
+// 	hour      = "hour"
+// 	minute    = "minute"
+// 	second    = "second"
+// 	latitude  = "latitude"
+// 	longitude = "longitude"
+// 	elevation = "elevation"
+// 	planet    = "planet"
+// )
 
 //profile and profiles are for collecting the user input.  In an excel program
 //they would be contents of cells
@@ -37,8 +38,8 @@ type profiles map[string]profile
 
 //When indexing through map keys, the order in indeterminant.  This list is to
 //make sure that it is not indeterminant and the map is traversed in this order.
-var profileList = []string{year, month, day, hour, minute, second, latitude,
-	longitude, elevation, planet}
+// var profileList = []string{year, month, day, hour, minute, second, latitude,
+// 	longitude, elevation, planet}
 
 func main() {
 	//build the structure to hold base (including earth and sun) and planet data
@@ -49,15 +50,15 @@ func main() {
 	printIntro()
 	reader := bufio.NewReader(os.Stdin)
 
-	var p = *getProfile() // first get a blank profile.
+	var p = *cli.GetProfile(true) // first get a blank profile.
 
 	for {
 		//In the following loop, inputs are gathered and the file is read and
 		//processed.  If everything is good, it will break and process the data
 		for {
 			//list data inside the profiles and edit as needed.
-			p = *p.getInput(reader)
-			pack := p.packageInput()
+			p = *p.GetInput(reader)
+			pack := p.PackageInput()
 			err := bd.ProcInputs(pack)
 			if err != nil {
 				fmt.Println("bad input, try again: ", err)
@@ -65,7 +66,7 @@ func main() {
 
 			planetName, ok := basedata[dataops.PlanetName]
 			if !ok {
-				check("bad lookup: planetName", nil)
+				fmt.Println("bad lookup: planetName")
 			}
 			fileName := "../data/" + planetName.Numonic + "data.csv"
 			//get planet (currently Jupiter) data
@@ -81,8 +82,8 @@ func main() {
 		//first, we calc the earth period, the angle, and mean and Eccentrioc anomaly
 		bd.CalcPeriod()
 		bd.CalcOPangles()
-		bd.CalcM()
-		bd.CalcE()
+		bd.CalcM("planet")
+		bd.CalcE("planet")
 
 		//<================= Calculate the Orbital Plane Vectors ==================>
 		erSunOP := bd.EarthOPVec()
@@ -91,18 +92,13 @@ func main() {
 		//<================= Location to "Earth center" vector ====================>
 		locTOearthRecef := bd.CalcLocalVec()
 
-		//Temperary print of the primary vectors
-		// fmt.Println("Earth OPV", erSunOP)
-		// fmt.Println("Planet OPV", prSunOP)
-		// fmt.Println("Location to ECEF", locTOearthRecef)
-
 		//Then calculate the Sideral angle at the requested time as well as the earth
 		//spin axis precession
 		bd.SidAngle()
 		bd.EarthPrecession()
 
 		//At this point, all input and intermediate data is read and calculated
-		// bd.PrintBaseItems()
+		bd.PrintBaseItems()
 
 		//<==== Calculate Sun Centred Interal to East North Up Transformation ====>
 
@@ -178,13 +174,6 @@ func main() {
 		erLocENU := skymath.Vply(ecefTOenu, locTOearthRecef)
 		// opeTOenu := skymath.Mply(sciTOenu, opeTOsci)
 
-		// prM(eMGamma3, "earthMinusGAMMA3")
-		// prM(sciTOenu, "sciTOenu")
-		// prM(oppTOsci, "oppTOsci")
-		// prM(opeTOsci, "opeTOsci")
-		// prM(opeTOenu, "opeTOenu")
-		// prM(ecefTOenu, "ecefTOenu")
-
 		//< Add the vectors up to find the location of the planet in the local sky
 		second := skymath.Vadd(erSunENU, erLocENU)
 		prENU := skymath.Vsub(prSunENU, second)
@@ -195,4 +184,14 @@ func main() {
 		beta, epsilon := skymath.CalcBetaEpsilon(prENU)
 		fmt.Printf("Beta: %f, Epsilon: %f\n", beta, epsilon)
 	}
+}
+
+func printIntro() {
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	fmt.Println("+   This program calculates the azimuth and elevation of a   +")
+	fmt.Println("+     specified planet at a specified location and time      +")
+	fmt.Println("+                                                            +")
+	fmt.Println("+     you can get latitude, longitude and elevation from     +")
+	fmt.Println("+       your smart phone compass application or the web      +")
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 }
