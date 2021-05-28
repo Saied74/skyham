@@ -68,7 +68,7 @@ func gConvert(g []string) (gt []float64, err error) {
 	if len(g) != 6 {
 		return []float64{}, fmt.Errorf("the length of georgian time string not 6")
 	}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 6; i++ {
 		gt[i], err = strconv.ParseFloat(g[i], 64)
 		if err != nil {
 			return []float64{}, fmt.Errorf("element %v did not convert %v", g[i], err)

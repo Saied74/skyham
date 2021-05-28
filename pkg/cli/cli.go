@@ -76,37 +76,37 @@ func GetProfile(p bool) *Profiles {
 			secondMsg: "The day is: ",
 			input:     "24",
 		},
-		hour: {
+		hour: profile{
 			firstMsg:  "Enter the hour of interest (24 hour format): ",
 			secondMsg: "The hour of interest is: ",
 			input:     "4",
 		},
-		minute: {
+		minute: profile{
 			firstMsg:  "Enter the minute of interest: ",
 			secondMsg: "The minute of interest is: ",
 			input:     "36",
 		},
-		second: {
-			firstMsg:  "Don't enter the second of interest: ",
+		second: profile{
+			firstMsg:  "Enter the second of interest: ",
 			secondMsg: "The second of interest is: ",
 			input:     "0",
 		},
-		latitude: {
+		latitude: profile{
 			firstMsg:  "Enter latitude (N-S) of interest in decimal format: ",
 			secondMsg: "Latitude of interest is: ",
 			input:     "40.3026 N",
 		},
-		longitude: {
+		longitude: profile{
 			firstMsg:  "Enter longitude (E-W) of interest in decimal format: ",
 			secondMsg: "Longitude of interest is: ",
 			input:     "71.5112 W",
 		},
-		elevation: {
+		elevation: profile{
 			firstMsg:  "Enter the elevation of interst in feet: ",
 			secondMsg: "Elevation is: ",
 			input:     "130",
 		},
-		planet: {
+		planet: profile{
 			firstMsg:  "Enter the " + x + " of interst: ",
 			secondMsg: "The " + x + " is: ",
 			input:     "AO-109",
@@ -130,7 +130,7 @@ func (p Profiles) GetInput(reader *bufio.Reader) *Profiles {
 	eol := "\n"
 	for {
 		p.listItems(reader)
-		fmt.Println("Enter the number of item you want to change")
+		fmt.Println("Enter the number of the item you want to change")
 		fmt.Println("Enter c to continue, q to quit")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSuffix(input, eol)
@@ -180,6 +180,7 @@ func getNumItem(p profile, reader *bufio.Reader) profile {
 	return p
 }
 
+//PackageInput builds a slide of input data strings to be processed by ProcSatInputs
 func (p Profiles) PackageInput() []string {
 	pack := []string{
 		p[year].input,

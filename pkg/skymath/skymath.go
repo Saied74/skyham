@@ -163,7 +163,7 @@ func CalcSpherical(x, y, z float64) (r, t, phi float64) {
 		t = math.Mod(math.Asin(x/r), 2*pi)
 		return r, (t / pi) * 180, phi
 	}
-	if x < 0 && y < 0 {
+	if x > 0 && y < 0 {
 		t = math.Mod(pi/2+math.Asin(-y/r), 2*pi)
 		return r, (t / pi) * 180, phi
 	}

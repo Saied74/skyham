@@ -46,8 +46,9 @@ func (bd *BaseItems) ProcSatInputs(pack []string) error {
 	minute := gTime[4]
 	second := gTime[5]
 	intMonth, _ := strconv.ParseInt(pack[1], 10, 32)
-	// TODO: This is a problem for January - need to fix
-	days := monthDays[intMonth-2] + day + (hour+(minute+second/60)/60)/24
+	// TODO: This is a problem for January - need to
+	fmt.Println("SECONDS", second)
+	days := monthDays[intMonth-2] + day + hour/24.0 + minute/(60.0*24.0) + second/(60.0*60.0*24.0)
 
 	dd["tempNow"] = BaseItem{
 		Name:        "tempNow",
